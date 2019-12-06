@@ -1,6 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-src/serverless.env.yml
+# package directories
+node_modules
+jspm_packages
 
-src/.serverless
-src/node_modules
+# Serverless directories
+.serverless

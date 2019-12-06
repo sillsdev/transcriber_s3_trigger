@@ -6,7 +6,7 @@ const host = process.env.SIL_TR_HOST;
 const stagepath = process.env.SIL_TR_URLPATH;
 
 exports.handler = async event => {
-  console.log("hello!");
+  console.log("hello! processing new s3 file!");
   const bucket = event.Records[0].s3.bucket.name;
   const key = decodeURIComponent(
     event.Records[0].s3.object.key.replace(/\+/g, " ")
@@ -17,18 +17,18 @@ exports.handler = async event => {
   console.log(region);
   console.log(bucket);
   console.log(key);
-  console.log(host);
-  console.log(stagepath);
+  console.log(host + stagepath);
+  console.log('force');
 
   function getMedia() {
     return new Promise((resolve, reject) => {
       // options for API request
       var options = {
         host: host,
-        path: stagepath + "/api/mediafiles/fromfile/" + filename,
+        path: stagepath + "/api/mediafiles/fromfile/" + encodeURI(filename),
         method: "GET"
       };
-
+      console.log("getMedia:", options);
       const req = https.request(options, res => {
         console.log("media statusCode:", res.statusCode);
         if (res.statusCode === 404) {
