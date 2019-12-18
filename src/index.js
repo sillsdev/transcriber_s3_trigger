@@ -1,6 +1,6 @@
 const https = require("https");
-const mp3 = require("mp3-duration");
 const path = require("path");
+const mm = require('music-metadata/lib/core');
 
 const host = process.env.SIL_TR_HOST;
 const stagepath = process.env.SIL_TR_URLPATH;
@@ -14,11 +14,8 @@ exports.handler = async event => {
   const filename = path.basename(key);
   const region = event.Records[0].awsRegion;
   const filesize = event.Records[0].s3.object.size;
-  console.log(region);
   console.log(bucket);
   console.log(key);
-  console.log(host + stagepath);
-  console.log('force');
 
   function getMedia() {
     return new Promise((resolve, reject) => {
@@ -87,6 +84,7 @@ exports.handler = async event => {
       req.end();
     });
   }
+  /*
   async function getFile() {
     const aws = require("aws-sdk");
     const s3 = new aws.S3(); // Pass in opts to S3 if necessary
@@ -97,17 +95,36 @@ exports.handler = async event => {
     const data = await s3.getObject(params).promise();
     return data.Body;
   }
-
+  */
+  async function getFileStream() {
+    const aws = require("aws-sdk");
+    const s3 = new aws.S3(); // Pass in opts to S3 if necessary
+    var params = {
+      Bucket: bucket, // your bucket name,
+      Key: key // path to the object you're looking for
+    };
+    const stream = s3.getObject(params).createReadStream().on('error', err => {
+      console.log('stream error', err);
+    })
+      .on('finish', () => {
+        console.log('stream finish');
+      })
+      .on('close', () => {
+        console.log('stream close');
+      });
+    return stream;
+  }
   try {
     var x = await getMedia();
     console.log("ID" + x.data.id);
-    var duration = await mp3(await getFile());
-    console.log("Your file is " + duration + " seconds long");
+    var stream = await getFileStream();
+    var metadata = await mm.parseStream(stream);
+    console.log("Your file is " + metadata.format.duration + " seconds long");
     //patch it
-    var x = await patchMedia(x.data.id, filesize, duration);
+    var x = await patchMedia(x.data.id, filesize, metadata.format.duration);
     return x;
   } catch (e) {
-    console.log("getMedia catch");
+    console.log("catch");
     console.log(e);
     return e;
   }

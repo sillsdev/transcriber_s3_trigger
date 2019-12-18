@@ -15,11 +15,18 @@ package:
   exclude:
     - node_modules/**/*
   include:
-    - node_modules/mp3-duration/**
-    - node_modules/index/**
-    - node_modules/bluebird/**
-    - node_modules/bluebird-co/**
-
+    - node_modules/content-type/**
+    - node_modules/debug/**
+    - node_modules/file-type/**
+    - node_modules/media-typer/**
+    - node_modules/ms/**
+    - node_modules/music-metadata/**
+    - node_modules/strtok3/**
+    - node_modules/then-read-stream/**
+    - node_modules/token-types/**
+        
+    
+  
 functions:
   sil-transcriber-processnewfile:
     handler: src/index.handler # required, handler set in AWS Lambda
