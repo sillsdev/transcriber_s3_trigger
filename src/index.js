@@ -7,15 +7,13 @@ const host = process.env.SIL_TR_HOST;
 const stagepath = process.env.SIL_TR_URLPATH;
 
 exports.handler = async event => {
-  console.log("hello! processing new s3 file!");
   const bucket = event.Records[0].s3.bucket.name;
   const key = decodeURIComponent(
     event.Records[0].s3.object.key.replace(/\+/g, " ")
   );
+  console.log("hello! processing new s3 file!", key);
   const filename = path.basename(key);
   const filesize = event.Records[0].s3.object.size;
-  console.log(bucket);
-  console.log(key);
 
   function getMedia() {
     return new Promise((resolve, reject) => {
@@ -96,65 +94,107 @@ exports.handler = async event => {
     const data = await s3.getObject(params).promise();
     return data.Body;
   }
-  async function getFileStream() {
+  
+  async function getFileStream(filekey) {
     const aws = require("aws-sdk");
     const s3 = new aws.S3(); // Pass in opts to S3 if necessary
     var params = {
-      Bucket: bucket, // your bucket name,
-      Key: key // path to the object you're looking for
+      Bucket: bucket,
+      Key: filekey 
     };
     const stream = s3.getObject(params).createReadStream().on('error', err => {
-      console.log('stream error', err);
+      console.log('stream error', err.message);
       return null;
     })
       .on('finish', () => {
-        console.log('stream finish');
+        //console.log('stream finish');
       })
       .on('close', () => {
         console.log('stream close');
       });
     return stream;
   }
-  /*
-    async function importProject() {
-      const AdmZip = require('adm-zip');
-      //const moment = require('moment');
-  
-      console.log("import offline project file");
-      var stream = null;
-      var tries = 0
-      while (stream === null && tries < 5) {
-        console.log(tries);
-        stream = await getFileStream();
-        tries++;
+  async function FileToBuffer(filekey) {
+    var stream = null;
+    var tries = 0;
+    while (stream === null && tries < 3) {
+      try {      
+        stream = await getFileStream(filekey); 
+      } catch (e) {
+        console.log("key", filekey);
+        console.log(e);
       }
-      if (stream !== null) {
-        const chunks = []
-        for await (let chunk of stream) {
-          chunks.push(chunk)
-        }
-        var zip = new AdmZip(Buffer.concat(chunks));
-        let valid = false;
-        var exportTime;
-        var zipEntries = zip.getEntries();
-        for (let entry of zipEntries) {
-          if (entry.entryName === 'SILTranscriberOffline') {
-            exportTime = entry.getData().toString('utf8');
-            valid = true;
-            console.log(exportTime);
-            break;
-          }
-        }
-        if (!valid)
-          return -1;
-        console.log('here');
-      }
-      return -1;
+      tries++;
     }
-  */
+    if (stream !== null) {
+      const chunks = [];
+      for await (let chunk of stream) {
+        chunks.push(chunk);
+      }
+      return Buffer.concat(chunks);
+    }
+    console.log("stream null");
+    return null;
+  }
+  
+  async function putFile(filekey, body) {
+    const aws = require("aws-sdk");
+    const s3 = new aws.S3(); // Pass in opts to S3 if necessary
+    var params = {
+      Bucket: bucket,
+      Key: filekey,
+      Body: body,
+      ContentType: "application/ptf", 
+    };
+    var mu = s3.upload(params);
+    var data = await mu.promise();
+    console.log("file saved ", data.Location);
+    return data.Location;
+  }
+
+  async function exportProjectMedia() {
+      const AdmZip = require('adm-zip');
+
+      console.log("export offline project file", key);
+      var start = 0;
+      var zip = new AdmZip(await FileToBuffer(key));
+      var statusFile = key.substr(0, key.length-3) + "sss";         
+      await putFile(statusFile,"0");
+      var zipEntries = zip.getEntries();
+      var mediafiles = zipEntries.find(e => e.entryName=== 'data/H_mediafiles.json');
+      if (mediafiles) {
+        var mediastr = mediafiles.getData().toString('utf8');
+        var media = JSON.parse(mediastr);
+        if (Array.isArray(media.data)){
+          for (var element of media.data) {
+            if (element.attributes["audio-url"])
+            {
+              try {
+              zip.addFile(element.attributes["audio-url"], await FileToBuffer(element.attributes["s3file"]));
+              } catch (e) {
+                console.log("error adding file");
+                console.log(e);
+              }
+            }
+            start += 1;
+            if (start % 10 === 0)
+            {
+              await putFile(statusFile,start.toString());
+            }
+          }; 
+          console.log("done", start );
+          await putFile(key.substr(0, key.length-3)+"ptf", zip.toBuffer());
+          await putFile(statusFile,"-1");
+        }
+      }
+      return start;
+  }
   try {
-    if (key.startsWith("exports"))
+    if (key.startsWith("exports")) {
+      if (key.endsWith("tmp"))
+        return await exportProjectMedia();
       return 0;
+    }
 
     if (key.startsWith("imports"))
       return 0; // await importProject();
@@ -166,7 +206,7 @@ exports.handler = async event => {
     var tries = 0
     while (stream === null && tries < 5) {
       console.log(tries);
-      stream = await getFileStream();
+      stream = await getFileStream(key);
       tries++;
     }
     if (stream !== null) {

@@ -15,6 +15,7 @@ package:
   exclude:
     - node_modules/**/*
   include:
+    - node_modules/adm-zip/**
     - node_modules/mp3-duration/**
     - node_modules/index/**
     - node_modules/bluebird/**
@@ -34,15 +35,15 @@ functions:
   sil-transcriber-processnewfile:
     handler: src/index.handler # required, handler set in AWS Lambda
     name: sil-transcriber-processnewfile-${self:custom.myStage} # optional, Deployed Lambda name
-    description: Process new audio file upload # optional, Description to publish to AWS
+    description: Process new audio or export file upload # optional, Description to publish to AWS
     #events:
     # - s3: 
     #      bucket: ${file(./serverless.env.yml):${self:custom.myStage}.SIL_TR_USERFILES_BUCKET
     #      event: s3:ObjectCreated:*
     #      existing: true
     runtime: nodejs10.x # optional overwrite, default is provider runtime
-    memorySize: 128 # optional, in MB, default is 1024
-    timeout: 30 # optional, in seconds, default is 6
+    memorySize: 1024 # optional, in MB, default is 1024
+    timeout: 360 # optional, in seconds, default is 6
     environment:
       SIL_TR_HOST: ${file(./serverless.env.yml):${self:custom.myStage}.SIL_TR_HOST}
       SIL_TR_URLPATH: ${file(./serverless.env.yml):${self:custom.myStage}.SIL_TR_URLPATH}
