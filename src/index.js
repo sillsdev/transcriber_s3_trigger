@@ -161,9 +161,16 @@ exports.handler = async event => {
       var statusFile = key.substr(0, key.length-3) + "sss";         
       await putFile(statusFile,"0");
       var zipEntries = zip.getEntries();
-      var mediafiles = zipEntries.find(e => e.entryName=== 'data/H_mediafiles.json');
+      var deletemf = true;
+      var mediafiles = zipEntries.find(e => e.entryName=== 'data/Z_attachedmediafiles.json');
+      if (!mediafiles) {
+        mediafiles = zipEntries.find(e => e.entryName=== 'data/H_mediafiles.json');
+        deletemf = false;
+      }
+
       if (mediafiles) {
         var mediastr = mediafiles.getData().toString('utf8');
+        if (deletemf) zip.deleteFile(mediafiles);
         var media = JSON.parse(mediastr);
         if (Array.isArray(media.data)){
           for (var element of media.data) {
