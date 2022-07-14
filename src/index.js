@@ -16,7 +16,7 @@ exports.handler = async (event) => {
   console.log("hello! processing new s3 file!", key);
   //key looks like 139647_Tes/126282_Luk/NIV11-LUK-001-001004v01.mp3
   var parts = key.split("/");
-  var plan = parts[1].match(/\d/g).join("");
+  var plan = parts[1].split("_")[0];
 
   const filename = path.basename(key);
   const filesize = event.Records[0].s3.object.size;
@@ -26,7 +26,7 @@ exports.handler = async (event) => {
       // options for API request
       var options = {
         host: host,
-        path: `${stagepath}/api/mediafiles/fromfile/${encodeURI(
+        path: `${stagepath}/api/mediafiles/fromfile/${plan}/${encodeURI(
           filename
         )}`,
         method: "GET",

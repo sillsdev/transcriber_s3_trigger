@@ -2,7 +2,7 @@ service: sil-transcriber-processnewfile
 
 provider:
   name: aws
-  runtime: nodejs14.x
+  runtime: nodejs16.x
   region: us-east-1
   stage: dev #cli build params will override this!!
   stackName: TranscriberTrigger${self:custom.myStage}
@@ -39,7 +39,7 @@ functions:
     #      bucket: ${file(./serverless.env.yml):${self:custom.myStage}.SIL_TR_USERFILES_BUCKET
     #      event: s3:ObjectCreated:*
     #      existing: true
-    runtime: nodejs10.x # optional overwrite, default is provider runtime
+    runtime: nodejs16.x # optional overwrite, default is provider runtime
     memorySize: 1024 # optional, in MB, default is 1024
     timeout: 360 # optional, in seconds, default is 6
     environment:
