@@ -33,17 +33,18 @@ functions:
   sil-transcriber-processnewfile:
     handler: src/index.handler # required, handler set in AWS Lambda
     name: sil-transcriber-processnewfile-${self:custom.myStage} # optional, Deployed Lambda name
-    description: Process new audio or export file upload # optional, Description to publish to AWS
+    description: Process new audio file upload # optional, Description to publish to AWS
     #events:
     # - s3: 
     #      bucket: ${file(./serverless.env.yml):${self:custom.myStage}.SIL_TR_USERFILES_BUCKET
     #      event: s3:ObjectCreated:*
     #      existing: true
     runtime: nodejs16.x # optional overwrite, default is provider runtime
-    memorySize: 1024 # optional, in MB, default is 1024
-    timeout: 360 # optional, in seconds, default is 6
+    memorySize: ${file(./serverless.env.yml):${self:custom.myStage}.MEMORY} # optional, in MB, default is 1024
+    timeout:  ${file(./serverless.env.yml):${self:custom.myStage}.TIMEOUT} # optional, in seconds, default is 6
     environment:
       SIL_TR_HOST: ${file(./serverless.env.yml):${self:custom.myStage}.SIL_TR_HOST}
       SIL_TR_URLPATH: ${file(./serverless.env.yml):${self:custom.myStage}.SIL_TR_URLPATH}
+      TIMEOUT: ${file(./serverless.env.yml):${self:custom.myStage}.TIMEOUT}
     role: ${file(./serverless.env.yml):${self:custom.myStage}.SIL_TR_LAMBDA_ROLE}
     
