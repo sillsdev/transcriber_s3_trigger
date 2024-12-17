@@ -1,10 +1,13 @@
-const https = require("https");
-const path = require("path");
-const mp3 = require("mp3-duration");
-const mm = require("music-metadata/lib/core");
+import https from 'https';
+import path from 'path';
+import mp3Duration from 'mp3-duration';
+import { parseStream } from 'music-metadata/lib/core';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { Readable } from 'stream';
 
 const host = process.env.SIL_TR_HOST;
 const stagepath = process.env.SIL_TR_URLPATH;
+const s3Client = new S3Client({ region: 'us-east-1' });
 
 exports.handler = async (event) => {
   const bucket = event.Records[0].s3.bucket.name;
@@ -90,37 +93,24 @@ exports.handler = async (event) => {
   }
 
   async function getFile() {
-    const aws = require("aws-sdk");
-    const s3 = new aws.S3(); // Pass in opts to S3 if necessary
-    var params = {
-      Bucket: bucket, // your bucket name,
-      Key: key, // path to the object you're looking for
-    };
-    const data = await s3.getObject(params).promise();
-    return data.Body;
+    const params = {
+      Bucket: bucket,
+      Key: key,
+      };
+      const command = new GetObjectCommand(params);
+      const { Body } = await s3Client.send(command);
+      const stream = Body instanceof Readable ? Body : Readable.from(Body);
+      const chunks = [];
+      for await (const chunk of stream) {
+      chunks.push(chunk);
+      }
+      return Buffer.concat(chunks);
   }
 
   async function getFileStream(filekey) {
-    const aws = require("aws-sdk");
-    const s3 = new aws.S3(); // Pass in opts to S3 if necessary
-    var params = {
-      Bucket: bucket,
-      Key: filekey,
-    };
-    const stream = s3
-      .getObject(params)
-      .createReadStream()
-      .on("error", (err) => {
-        console.log("stream error", err.message);
-        return null;
-      })
-      .on("finish", () => {
-        //console.log('stream finish');
-      })
-      .on("close", () => {
-        //console.log("stream close");
-      });
-    return stream;
+    const command = new GetObjectCommand(params);
+    const { Body } = await s3Client.send(command);
+    return Body instanceof Readable ? Body : Readable.from(Body);
   }
 
   try {
@@ -137,14 +127,14 @@ exports.handler = async (event) => {
       tries++;
     }
     if (stream !== null) {
-      var metadata = await mm.parseStream(
+      var metadata = await parseStream(
         stream,
         x.data.attributes["content-type"]
       );
       var duration = metadata.format.duration;
 
       if (duration === undefined) {
-        duration = await mp3(await getFile()); //this doesn't do m4a files correctly so it's a backup only
+        duration = await mp3Duration(await getFile()); //this doesn't do m4a files correctly so it's a backup only
         console.log("Your file is " + duration + " seconds long - mm");
       } else {
         console.log("Your file is " + duration + " seconds long - meta");
