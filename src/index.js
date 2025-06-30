@@ -1,7 +1,7 @@
 import https from 'https';
 import path from 'path';
 import mp3Duration from 'mp3-duration';
-import { parseStream } from 'music-metadata/lib/core';
+import { parseStream } from 'music-metadata';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { Readable } from 'stream';
 
@@ -9,7 +9,7 @@ const host = process.env.SIL_TR_HOST;
 const stagepath = process.env.SIL_TR_URLPATH;
 const s3Client = new S3Client({ region: 'us-east-1' });
 
-exports.handler = async (event) => {
+export const handler = async (event) => {
   const bucket = event.Records[0].s3.bucket.name;
   let key = decodeURIComponent(
     event.Records[0].s3.object.key.replace(/\+/g, " ")
@@ -108,6 +108,11 @@ exports.handler = async (event) => {
   }
 
   async function getFileStream(filekey) {
+    var params = {
+      Bucket: bucket,
+      Key: filekey,
+    };
+      
     const command = new GetObjectCommand(params);
     const { Body } = await s3Client.send(command);
     return Body instanceof Readable ? Body : Readable.from(Body);
@@ -140,7 +145,7 @@ exports.handler = async (event) => {
         console.log("Your file is " + duration + " seconds long - meta");
       }
       //patch it
-      var x = await patchMedia(x.data.id, filesize, duration);
+      var x = await patchMedia(x.data.id, filesize, Math.ceil(duration));
       return x;
     } else {
       console.log("file could not be opened");
