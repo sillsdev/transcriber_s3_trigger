@@ -21,6 +21,8 @@ functions:
     handler: src/index.handler # required, handler set in AWS Lambda
     name: sil-transcriber-processnewfile-${self:custom.myStage} # optional, Deployed Lambda name
     description: Process new audio file upload # optional, Description to publish to AWS
+    # Same function invokes itself for fixDuration requeue; default loop detection stops the chain ~after 16 hops.
+    #recursiveLoop: Allow
     #events:
     # - s3: 
     #      bucket: ${file(./serverless.env.yml):${self:custom.myStage}.SIL_TR_USERFILES_BUCKET

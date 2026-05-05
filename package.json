@@ -12,10 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "mp3-duration": "^1.1.0",
-    "music-metadata": "^10.6.4"
-  },
-  "devDependencies": {
-    "@aws-sdk/client-s3": "^3.713.0"
+    "@aws-sdk/client-lambda": "^3.1041.0",
+    "@aws-sdk/client-s3": "^3.1041.0"
   }
 }
