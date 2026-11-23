@@ -31,6 +31,10 @@ functions:
     runtime: nodejs22.x # optional overwrite, default is provider runtime
     memorySize: ${file(./serverless.env.yml):${self:custom.myStage}.MEMORY} # optional, in MB, default is 1024
     timeout:  ${file(./serverless.env.yml):${self:custom.myStage}.TIMEOUT} # optional, in seconds, default is 6
+    # Each run makes two API calls (fromfile, fileinfo), each on its own api lambda with its own db connection.
+    # A project import uploads hundreds of files a minute; unlimited, that is 40+ connections and swaps the
+    # (small) database until api calls time out. Limited, S3 events wait in lambda's async queue instead.
+    reservedConcurrency: 5
     environment:
       SIL_TR_HOST: ${file(./serverless.env.yml):${self:custom.myStage}.SIL_TR_HOST}
       SIL_TR_URLPATH: ${file(./serverless.env.yml):${self:custom.myStage}.SIL_TR_URLPATH}

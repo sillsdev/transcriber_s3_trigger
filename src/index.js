@@ -543,6 +543,51 @@ export const handler = async (event, context) => {
     });
   }
 
+  /**
+   * getMedia, retrying a 404 for a while: a project import uploads a batch of files to S3 and only then
+   * saves their mediafile rows (so a timed-out import call can resume safely), so this trigger can run
+   * before the row exists. The rows are normally saved within a second or two of the upload.
+   */
+  async function getMediaWithRetry(lambdaContext) {
+    const delaysMs = [2000, 4000, 8000, 16000];
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await getMedia();
+      } catch (e) {
+        const delay = delaysMs[attempt];
+        const remaining = lambdaContext?.getRemainingTimeInMillis?.() ?? Infinity;
+        // only a 404 is worth retrying; keep enough time left for ffprobe and the patch
+        if (e !== 404 || delay === undefined || remaining < delay + 15000) throw e;
+        console.log(`media not found yet, retry ${attempt + 1} in ${delay / 1000}s`, key);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  /**
+   * true when the mediafile row already has a duration and its filesize matches this S3 object - e.g. a project
+   * import, which copies duration and filesize from the export. Then there's nothing to measure or patch.
+   * A row with no duration (null/0, as baddurations defines it) or a different size is measured as before;
+   * duration -1 means "measured, not audio".
+   */
+  async function alreadyMeasured(media) {
+    const attrs = media?.data?.attributes ?? {};
+    const duration = Number(attrs.duration ?? 0);
+    const filesize = Number(attrs.filesize ?? 0);
+    if (!duration || !filesize) return false;
+    let size = event.Records[0].s3.object.size;
+    if (typeof size !== "number") {
+      try {
+        const head = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+        size = head.ContentLength;
+      } catch (e) {
+        console.log("alreadyMeasured HeadObject failed, measuring", key, e?.name);
+        return false;
+      }
+    }
+    return size === filesize;
+  }
+
   try {
     if (key.startsWith("exports")) return 0;
     if (key.startsWith("imports")) return 0; // await importProject();
@@ -555,7 +600,11 @@ export const handler = async (event, context) => {
     var plan = parts[1].split("_")[0];
 
     /* user media file */
-    var x = await getMedia();
+    var x = await getMediaWithRetry(context);
+    if (await alreadyMeasured(x)) {
+      console.log("duration and size already set, skipping", key);
+      return x;
+    }
     const { durationSeconds, outputFileSizeBytes } = await getFileMetadata(
       x.data.attributes["audio-url"],
     );
