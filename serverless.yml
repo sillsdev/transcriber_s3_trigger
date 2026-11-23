@@ -2,7 +2,7 @@ service: sil-transcriber-processnewfile
 
 provider:
   name: aws
-  runtime: nodejs16.x
+  runtime: nodejs22.x
   region: us-east-1
   stage: dev #cli build params will override this!!
   stackName: TranscriberTrigger${self:custom.myStage}
@@ -13,35 +13,28 @@ plugins:
   -serverless-plugin-typescript
 package:
   patterns:
-    - '!node_modules/**/*'
-    - 'node_modules/adm-zip/**'
-    - 'node_modules/mp3-duration/**'
-    - 'node_modules/index/**'
-    - 'node_modules/bluebird/**'
-    - 'node_modules/bluebird-co/**'
-    - 'node_modules/content-type/**'
-    - 'node_modules/debug/**'
-    - 'node_modules/file-type/**'
-    - 'node_modules/media-typer/**'
-    - 'node_modules/ms/**'
-    - 'node_modules/music-metadata/**'
-    - 'node_modules/strtok3/**'
-    - 'node_modules/then-read-stream/**'
-    - 'node_modules/token-types/**' 
+    - 'node_modules/**/*'
+
   
 functions:
   sil-transcriber-processnewfile:
     handler: src/index.handler # required, handler set in AWS Lambda
     name: sil-transcriber-processnewfile-${self:custom.myStage} # optional, Deployed Lambda name
     description: Process new audio file upload # optional, Description to publish to AWS
+    # Same function invokes itself for fixDuration requeue; default loop detection stops the chain ~after 16 hops.
+    #recursiveLoop: Allow
     #events:
     # - s3: 
     #      bucket: ${file(./serverless.env.yml):${self:custom.myStage}.SIL_TR_USERFILES_BUCKET
     #      event: s3:ObjectCreated:*
     #      existing: true
-    runtime: nodejs16.x # optional overwrite, default is provider runtime
+    runtime: nodejs22.x # optional overwrite, default is provider runtime
     memorySize: ${file(./serverless.env.yml):${self:custom.myStage}.MEMORY} # optional, in MB, default is 1024
     timeout:  ${file(./serverless.env.yml):${self:custom.myStage}.TIMEOUT} # optional, in seconds, default is 6
+    # Each run makes two API calls (fromfile, fileinfo), each on its own api lambda with its own db connection.
+    # A project import uploads hundreds of files a minute; unlimited, that is 40+ connections and swaps the
+    # (small) database until api calls time out. Limited, S3 events wait in lambda's async queue instead.
+    reservedConcurrency: 5
     environment:
       SIL_TR_HOST: ${file(./serverless.env.yml):${self:custom.myStage}.SIL_TR_HOST}
       SIL_TR_URLPATH: ${file(./serverless.env.yml):${self:custom.myStage}.SIL_TR_URLPATH}
